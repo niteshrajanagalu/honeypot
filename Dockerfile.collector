@@ -1,0 +1,6 @@
+FROM python:3.10-slim
+WORKDIR /app
+COPY collector/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY collector/mqtt_honeypot_collector.py .
+CMD ["python", "mqtt_honeypot_collector.py"]

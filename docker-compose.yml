@@ -1,0 +1,34 @@
+version: '3.9'
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    ports:
+      - '1883:1883'
+      - '9001:9001'
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+    networks:
+      - honeypot_net
+
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile.collector
+    container_name: collector
+    depends_on:
+      - mqtt-broker
+    networks:
+      - honeypot_net
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    ports:
+      - '1880:1880'
+    networks:
+      - honeypot_net
+
+networks:
+  honeypot_net:
+    driver: bridge

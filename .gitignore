@@ -1,0 +1,10 @@
+.env
+logs/
+mosquitto/data/
+mosquitto/log/
+*.pem
+*.key
+__pycache__/
+.vscode/
+*.sqlite
+.DS_Store
