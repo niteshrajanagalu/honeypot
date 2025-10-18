@@ -1,5 +1,5 @@
 ## Contributors
-- Nitesh Raja Nagalu (@niteshrajanagalu)
-- Nidhi (@nidhiisamin)
-- Bhoomika Manjunath (@bhoomika-manjunath)
-- Priya Kumari (@priyakumari04)
+- Nitesh Raja Nagalu @niteshrajanagalu
+- Nidhi @nidhiisamin
+- Bhoomika Manjunath @bhoomika-manjunath
+- Priya Kumari @priyakumari04
