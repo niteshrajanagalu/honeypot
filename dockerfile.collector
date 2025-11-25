@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+WORKDIR /app
+# Copy collector script
+COPY mqtt_honeypot_collector.py /app/mqtt_honeypot_collector.py
+# Install latest paho-mqtt
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir "paho-mqtt<2.0.0" --upgrade
+CMD ["python", "/app/mqtt_honeypot_collector.py"]
+

@@ -1,10 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+dist/
 .env
 logs/
-mosquitto/data/
-mosquitto/log/
-*.pem
-*.key
-__pycache__/
-.vscode/
-*.sqlite
-.DS_Store
+*.log

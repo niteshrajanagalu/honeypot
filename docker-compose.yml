@@ -11,6 +11,17 @@ services:
     networks:
       - honeypot_net
 
+  proxy-logger:
+    build:
+      context: ./proxy_logger
+    container_name: proxy-logger
+    ports:
+      - '1884:1884' # External port for attackers
+    depends_on:
+      - mqtt-broker
+    networks:
+      - honeypot_net
+
   collector:
     build:
       context: .
@@ -18,8 +29,26 @@ services:
     container_name: collector
     depends_on:
       - mqtt-broker
+    ports:
+      - '8000:8000' # API for frontend
     networks:
       - honeypot_net
+    volumes:
+      - ./collector/mqtt_honeypot_collector.py:/app/mqtt_honeypot_collector.py
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: honeypot-frontend
+    ports:
+      - '5173:5173'
+    depends_on:
+      - collector
+    networks:
+      - honeypot_net
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
   nodered:
     image: nodered/node-red:latest
