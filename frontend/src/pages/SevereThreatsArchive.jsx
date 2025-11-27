@@ -60,27 +60,29 @@ const SevereThreatsArchive = () => {
     };
 
     const filteredArchive = archive.filter(threat => {
-        // Parse timestamp - could be ISO string or Unix timestamp
-        let threatDate;
-        if (typeof threat.timestamp === 'string') {
-            threatDate = new Date(threat.timestamp);
-        } else if (typeof threat.timestamp === 'number') {
-            // If it's a small number, it's in seconds, otherwise milliseconds
-            threatDate = threat.timestamp < 1000000000000
-                ? new Date(threat.timestamp * 1000)
-                : new Date(threat.timestamp);
-        } else {
-            return false; // Invalid timestamp
-        }
-
         const now = new Date();
 
         if (filter === 'today') {
-            // Compare dates by setting time to midnight for accurate day comparison
-            const threatDateOnly = new Date(threatDate.getFullYear(), threatDate.getMonth(), threatDate.getDate());
+            // For "today" filter, use archivedAt (when it was saved to archive)
+            if (!threat.archivedAt) return false;
+
+            const archivedDate = new Date(threat.archivedAt);
+            const archivedDateOnly = new Date(archivedDate.getFullYear(), archivedDate.getMonth(), archivedDate.getDate());
             const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            return threatDateOnly.getTime() === nowDateOnly.getTime();
+            return archivedDateOnly.getTime() === nowDateOnly.getTime();
         } else if (filter === 'week') {
+            // For "week" filter, use attack timestamp (when attack occurred)
+            let threatDate;
+            if (typeof threat.timestamp === 'string') {
+                threatDate = new Date(threat.timestamp);
+            } else if (typeof threat.timestamp === 'number') {
+                threatDate = threat.timestamp < 1000000000000
+                    ? new Date(threat.timestamp * 1000)
+                    : new Date(threat.timestamp);
+            } else {
+                return false;
+            }
+
             const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             return threatDate >= weekAgo;
         }

@@ -1,0 +1,34 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../collector"
+		},
+		{
+			"path": "../frontend"
+		},
+		{
+			"path": "../logs"
+		},
+		{
+			"path": "../mosquitto"
+		},
+		{
+			"path": "../mosquitto_data"
+		},
+		{
+			"path": "../mosquitto_log"
+		},
+		{
+			"path": "../node_red_data"
+		},
+		{
+			"path": "../proxy_logger"
+		},
+		{
+			"path": "../venv"
+		}
+	]
+}

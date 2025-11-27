@@ -9,7 +9,8 @@ import paho.mqtt.client as mqtt
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import List
 
 # Configuration
@@ -115,9 +116,14 @@ def on_message(client, userdata, msg):
     # Handle Attacks (everything except peer discovery)
     if not topic.startswith(PEER_TOPIC):  # Changed from "honeypot/" to PEER_TOPIC
         logger.info(f"Attack captured on {topic}: {payload}")
+        
+        # Use IST timezone for accurate timestamps
+        ist_tz = ZoneInfo("Asia/Kolkata")
+        current_time = datetime.now(ist_tz)
+        
         attack_record = {
             "id": str(uuid.uuid4()),
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": current_time.isoformat(),  # ISO format with timezone
             "topic": topic,
             "payload": payload,
             "node_id": NODE_ID,
@@ -194,9 +200,10 @@ if __name__ == "__main__":
     # Start MQTT loop in background
     client.loop_start()
     
-    # Start announcement thread
-    announce_thread = threading.Thread(target=announce_presence, args=(client,), daemon=True)
-    announce_thread.start()
+    # NOTE: Disabled self-announcement to avoid creating fake peer entries
+    # The local node should not appear as its own peer in the topology
+    # announce_thread = threading.Thread(target=announce_presence, args=(client,), daemon=True)
+    # announce_thread.start()
 
     # Start cleanup thread
     cleanup_thread = threading.Thread(target=cleanup_peers, daemon=True)
