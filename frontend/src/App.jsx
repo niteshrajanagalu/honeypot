@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Shield, Share2, Settings, Activity, Menu, X, Globe, Archive } from 'lucide-react';
+import { LayoutDashboard, Shield, Share2, Settings, Activity, Menu, Globe, Archive, WifiOff } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import AttackLogs from './pages/AttackLogs';
 import NetworkMap from './pages/NetworkMap';
 import SettingsPage from './pages/SettingsPage';
 import Peers from './pages/Peers';
 import SevereThreatsArchive from './pages/SevereThreatsArchive';
-import { SocketProvider } from './context/SocketContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,7 +26,7 @@ class ErrorBoundary extends React.Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        console.error("Uncaught error:", error, errorInfo);
+        console.error('Uncaught error:', error, errorInfo);
     }
 
     render() {
@@ -49,10 +49,29 @@ class ErrorBoundary extends React.Component {
                 </div>
             );
         }
-
         return this.props.children;
     }
 }
+
+// Disconnection banner — reads socket state inside provider
+const DisconnectBanner = () => {
+    const { isConnected } = useSocket();
+    return (
+        <AnimatePresence>
+            {!isConnected && (
+                <motion.div
+                    initial={{ opacity: 0, y: -40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -40 }}
+                    className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-red-500/90 backdrop-blur-md py-2 text-white text-sm font-bold tracking-wide shadow-lg"
+                >
+                    <WifiOff size={14} />
+                    COLLECTOR OFFLINE — Attempting to reconnect…
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
 
 const App = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -74,10 +93,10 @@ const App = () => {
         <button
             onClick={() => setActiveTab(id)}
             className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden",
+                'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden',
                 activeTab === id
-                    ? "bg-primary/10 text-primary shadow-[0_0_20px_rgba(59,130,246,0.15)] border border-primary/20"
-                    : "text-muted hover:text-white hover:bg-white/5"
+                    ? 'bg-primary/10 text-primary shadow-[0_0_20px_rgba(59,130,246,0.15)] border border-primary/20'
+                    : 'text-muted hover:text-white hover:bg-white/5'
             )}
         >
             {activeTab === id && (
@@ -85,11 +104,18 @@ const App = () => {
                     layoutId="activeTab"
                     className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-50"
                     initial={false}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
             )}
-            <Icon size={20} className={cn("relative z-10 transition-transform group-hover:scale-110", activeTab === id && "text-primary")} />
-            <span className={cn("relative z-10 font-medium tracking-wide", !isSidebarOpen && "hidden md:hidden")}>
+            <Icon
+                size={20}
+                className={cn(
+                    'relative z-10 flex-shrink-0 transition-transform group-hover:scale-110',
+                    activeTab === id && 'text-primary'
+                )}
+            />
+            {/* Only hide label text, keep icon visible when collapsed */}
+            <span className={cn('relative z-10 font-medium tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300', !isSidebarOpen && 'hidden')}>
                 {label}
             </span>
             {activeTab === id && (
@@ -105,28 +131,45 @@ const App = () => {
                     {/* Glassmorphic Sidebar */}
                     <motion.div
                         initial={false}
-                        animate={{ width: isSidebarOpen ? 280 : 80 }}
-                        className="relative z-50 flex flex-col border-r border-white/5 bg-surface/30 backdrop-blur-xl shadow-2xl transition-all duration-300"
+                        animate={{ width: isSidebarOpen ? 280 : 72 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        className="relative z-50 flex flex-col border-r border-white/5 bg-surface/30 backdrop-blur-xl shadow-2xl flex-shrink-0"
                     >
-                        <div className="p-6 flex items-center justify-between">
-                            <div className={cn("flex items-center gap-3 overflow-hidden whitespace-nowrap", !isSidebarOpen && "hidden")}>
-                                <div className="p-2 bg-primary/20 rounded-lg border border-primary/30">
-                                    <Shield className="text-primary" size={24} />
-                                </div>
-                                <div>
-                                    <h1 className="font-black text-lg tracking-tight text-white">SENTINEL<span className="text-primary">IoT</span></h1>
-                                    <p className="text-[10px] text-primary/80 font-mono tracking-wider">HONEYPOT SYSTEM</p>
-                                </div>
-                            </div>
+                        <div className="p-4 flex items-center justify-between gap-2 min-h-[72px]">
+                            <AnimatePresence>
+                                {isSidebarOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="flex items-center gap-3 overflow-hidden"
+                                    >
+                                        <div className="p-2 bg-primary/20 rounded-lg border border-primary/30 flex-shrink-0">
+                                            <Shield className="text-primary" size={20} />
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <h1 className="font-black text-base tracking-tight text-white leading-none">
+                                                SENTINEL<span className="text-primary">IoT</span>
+                                            </h1>
+                                            <p className="text-[10px] text-primary/80 font-mono tracking-wider mt-0.5">HONEYPOT SYSTEM</p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className="p-2 hover:bg-white/5 rounded-lg text-muted hover:text-white transition-colors mx-auto"
+                                className={cn(
+                                    'p-2 hover:bg-white/5 rounded-lg text-muted hover:text-white transition-colors flex-shrink-0',
+                                    !isSidebarOpen && 'mx-auto'
+                                )}
+                                title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
                             >
-                                {isSidebarOpen ? <Menu size={20} /> : <Shield size={24} className="text-primary" />}
+                                {isSidebarOpen ? <Menu size={20} /> : <Shield size={20} className="text-primary" />}
                             </button>
                         </div>
 
-                        <nav className="flex-1 px-4 space-y-2 mt-4">
+                        <nav className="flex-1 px-3 space-y-1 mt-2">
                             <NavItem id="dashboard" icon={LayoutDashboard} label="Command Center" />
                             <NavItem id="logs" icon={Activity} label="Activity Logs" />
                             <NavItem id="archive" icon={Archive} label="Threat Archive" />
@@ -135,27 +178,38 @@ const App = () => {
                             <NavItem id="settings" icon={Settings} label="System Config" />
                         </nav>
 
-                        <div className="p-4 border-t border-white/5">
-                            <div className={cn("p-4 rounded-xl bg-gradient-to-br from-primary/10 to-purple-500/10 border border-white/5", !isSidebarOpen && "hidden")}>
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="relative">
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute inset-0" />
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500 relative" />
-                                    </div>
-                                    <span className="text-xs font-bold text-emerald-500 tracking-wider">SYSTEM ONLINE</span>
-                                </div>
-                                <div className="text-[10px] text-muted font-mono">
-                                    Uptime: 14d 2h 12m<br />
-                                    Version: 2.4.0-RC
-                                </div>
-                            </div>
+                        <div className="p-3 border-t border-white/5">
+                            <AnimatePresence>
+                                {isSidebarOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="p-4 rounded-xl bg-gradient-to-br from-primary/10 to-purple-500/10 border border-white/5"
+                                    >
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="relative flex-shrink-0">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute inset-0" />
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 relative" />
+                                            </div>
+                                            <span className="text-xs font-bold text-emerald-500 tracking-wider">SYSTEM ONLINE</span>
+                                        </div>
+                                        <div className="text-[10px] text-muted font-mono">
+                                            v2.4.0 — IIoT Honeypot
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </motion.div>
 
                     {/* Main Content Area */}
                     <main className="flex-1 relative overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
-
+                        <DisconnectBanner />
+                        <div className="absolute inset-0 opacity-20 pointer-events-none"
+                            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E\")" }}
+                        />
                         <div className="h-full overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                             <AnimatePresence mode="wait">
                                 <motion.div

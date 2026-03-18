@@ -1,238 +1,218 @@
-<div align="center">
+# Decentralized Industrial IoT Honeypot — Command Center
 
-# 🛡️ Decentralized Industrial IoT Honeypot
+> **Proactive threat intelligence for the Industrial IoT attack surface. Not just a log viewer — a real-time, distributed deception system that lures attackers in, captures their behavior, and renders it as actionable intelligence on a cinematic Command Center dashboard.**
 
-### Real-time threat intelligence for Industrial IoT networks
-
-A distributed honeypot system that mimics vulnerable IIoT devices, captures attacker behavior via MQTT, and visualizes threats in a real-time Command Center dashboard.
-
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](#-quick-start)
-[![Python](https://img.shields.io/badge/Python-FastAPI-3776AB?logo=python&logoColor=white)](#-tech-stack)
-[![React](https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=black)](#-tech-stack)
-[![MQTT](https://img.shields.io/badge/MQTT-Mosquitto-660066?logo=eclipsemosquitto&logoColor=white)](#-tech-stack)
-[![ESP32](https://img.shields.io/badge/ESP32-Hardware_Node-E7352C?logo=espressif&logoColor=white)](#-hardware-integration)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-</div>
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104-009688?style=flat-square&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18.2-61DAFB?style=flat-square&logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5.0-646CFF?style=flat-square&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.3-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+![MQTT](https://img.shields.io/badge/MQTT-Eclipse%20Mosquitto%202.0-660066?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
 
 ---
 
-## The Problem
+## What Is This?
 
-Industrial IoT devices (PLCs, sensors, SCADA systems) are among the most attacked targets on the internet. Most are deployed with default credentials, zero monitoring, and no visibility into who's probing them. Traditional security tools generate logs that nobody reads. By the time an attack is detected, the damage is done.
+Industrial IoT devices — PLCs, SCADA sensors, smart meters — are among the most targeted and least monitored systems in modern infrastructure. Traditional intrusion detection is passive: it waits for something bad to happen inside your real network.
 
-## What This Does
+This project flips the script. It **deploys decoy IIoT devices** that appear vulnerable, attract real-world attack traffic via the MQTT protocol, and stream every captured event to a live intelligence dashboard — in milliseconds, not minutes.
 
-This system **flips the script** — instead of defending, it lures attackers in.
-
-It deploys decoy IoT devices (honeypots) that look like real industrial systems. When attackers probe, scan, or attempt to compromise these decoys, every action is captured, classified by severity, and visualized in real-time on a cinematic Command Center dashboard.
-
-**Think of it as a security camera system, but for your network — and attackers don't know they're being watched.**
+**What makes it different:**
+- Decentralized mesh architecture — multiple honeypot nodes discover each other automatically and share topology data
+- Proxy-based packet interception that captures raw MQTT traffic *before* it reaches the broker
+- WebSocket-first backend: zero polling, pure event-driven data flow from sensor to screen
+- ESP32 edge device integration — embed a physical honeypot node on your LAN
 
 ---
 
-## Architecture
+## System Architecture
 
 ```
-                         ┌─────────────────────────────────────┐
-                         │       COMMAND CENTER DASHBOARD       │
-                         │   React + Vite + TailwindCSS         │
-                         │   Real-time WebSocket feed            │
-                         │   Threat classification & archive     │
-                         └──────────────┬──────────────────────┘
-                                        │ WebSocket (live data)
-                                        │
-                         ┌──────────────▼──────────────────────┐
-                         │         COLLECTOR / API SERVER        │
-                         │   Python + FastAPI                    │
-                         │   Threat classification engine        │
-                         │   Severity scoring                    │
-                         │   Persistent threat archive           │
-                         └──────────────┬──────────────────────┘
-                                        │ MQTT Subscribe (#)
-                                        │
-                         ┌──────────────▼──────────────────────┐
-                         │         MOSQUITTO MQTT BROKER         │
-                         │   Central message bus                 │
-                         │   Port 1883 (internal)                │
-                         │   Port 9001 (WebSocket)               │
-                         └──────┬───────────────┬──────────────┘
-                                │               │
-               ┌────────────────▼───┐   ┌───────▼────────────────┐
-               │   PROXY LOGGER      │   │   NODE-RED              │
-               │   Port 1884 (trap)  │   │   Workflow automation   │
-               │   Intercepts all    │   │   Alert routing         │
-               │   attacker traffic  │   │   Custom triggers       │
-               └────────────────────┘   └────────────────────────┘
-                        ▲
-                        │ Attacker connects
-                        │ (thinks it's a real device)
-                        │
-               ┌────────┴────────────┐
-               │   ATTACKER           │
-               │   Scans, probes,     │
-               │   sends payloads     │
-               └─────────────────────┘
+                        ┌─────────────────────────────────────────┐
+                        │           ATTACKER / SCANNER             │
+                        └──────────────────┬──────────────────────┘
+                                           │  TCP :1884
+                                           ▼
+                        ┌─────────────────────────────────────────┐
+                        │           PROXY LOGGER (:1884)           │
+                        │  Intercepts MQTT packets, logs payloads  │
+                        │  Forwards to real broker transparently   │
+                        └──────────────────┬──────────────────────┘
+                                           │  TCP :1883
+                                           ▼
+                        ┌─────────────────────────────────────────┐
+                        │     ECLIPSE MOSQUITTO BROKER (:1883)     │
+                        │     WebSocket bridge on :9001            │
+                        └──────────────────┬──────────────────────┘
+                                           │  MQTT subscribe(#)
+                                           ▼
+                        ┌─────────────────────────────────────────┐
+                        │        COLLECTOR SERVICE (:8000)         │
+                        │  FastAPI + Paho MQTT                     │
+                        │  • Classifies attack severity            │
+                        │  • Manages peer mesh topology            │
+                        │  • Broadcasts events via WebSocket       │
+                        └──────────────────┬──────────────────────┘
+                                           │  WebSocket /ws
+                                           ▼
+                        ┌─────────────────────────────────────────┐
+                        │      REACT DASHBOARD (:5173)             │
+                        │  Live attack feed · Network graph        │
+                        │  Severity charts · Threats archive       │
+                        └─────────────────────────────────────────┘
 
-     ┌──────────────────────────────────────────────┐
-     │   ESP32 HARDWARE NODES (Optional)             │
-     │   Physical honeypot devices on real networks   │
-     │   Publish telemetry + trap data via MQTT       │
-     └──────────────────────────────────────────────┘
+            ESP32 Nodes ──────────────────────────────────────────┘
+            (Physical edge honeypots on LAN, MQTT pub/sub)
 ```
+
+### Service Breakdown
+
+| Service | Port | Role |
+|---|---|---|
+| `mqtt-broker` | 1883, 9001 | Eclipse Mosquitto — central MQTT message bus |
+| `proxy-logger` | 1884 | Transparent TCP proxy; captures raw attack payloads |
+| `collector` | 8000 | FastAPI backend; classifies, stores, and streams events |
+| `frontend` | 5173 | React SPA; real-time Command Center dashboard |
+| `nodered` | 1880 | Node-RED automation pipeline for custom alert workflows |
 
 ---
 
 ## Key Features
 
-**Threat Intelligence Pipeline**
-- Proxy logger on port 1884 intercepts all incoming MQTT traffic from attackers
-- Automatic threat classification (severity scoring based on payload analysis)
-- Real-time WebSocket stream from collector to dashboard — zero polling, instant updates
+### Real-Time Threat Intelligence
+- WebSocket connection from the collector pushes every captured event to all connected dashboard clients instantly — no polling
+- Severity classification engine flags payloads containing exploit keywords (`exploit`, `cmd`) as **High** severity
+- Rolling buffer of the 100 most recent attacks kept in memory; high-severity events are archived permanently
 
-**Decentralized Mesh Design**
-- Multiple honeypot nodes (software or ESP32 hardware) report to a central broker
-- Automatic peer discovery and topology mapping
-- Scales horizontally — add more nodes, get more coverage
+### Decentralized Mesh Network
+- Each honeypot node announces itself on `honeypot/peers/{node_id}` with its IP, status, and timestamp
+- The collector maintains a live peer map and evicts nodes not seen within 30 seconds
+- Peer join/leave events are broadcast in real time so the topology graph reflects actual network state
 
-**Command Center Dashboard**
-- Glassmorphism UI with animated real-time statistics
-- Live attack feed with severity color coding
-- Severe threats archive with export capabilities
-- Network topology visualization
+### Proxy-Based Packet Interception
+- `proxy-logger` listens on port 1884 (the "bait" port) and acts as a transparent TCP proxy
+- Raw MQTT packets are logged before forwarding — capturing attacker payloads that would otherwise be invisible at the application layer
 
-**Hardware Integration**
-- ESP32 Arduino client included (`esp32_honeypot_client.ino`)
-- Deploy physical honeypot nodes on real networks
-- Reports back to the central system via MQTT
+### Command Center Dashboard
+- Built with React 18, Vite, and TailwindCSS; glassmorphism design language with Framer Motion animations
+- Pages: Live Dashboard · Network Topology Graph · Attack Logs · Severe Threats Archive · Peer Status
+- Network topology rendered with `react-force-graph-2d` — nodes are honeypot peers, edges are discovered connections
+
+### ESP32 Edge Integration
+- Companion Arduino sketch (`esp32_honeypot_client.ino`) turns an ESP32 into a physical honeypot node
+- Device publishes presence and attack data over Wi-Fi directly to the MQTT broker, appearing in the mesh alongside software nodes
+
+### Node-RED Automation Pipeline
+- Embedded Node-RED instance allows no-code alert routing — send Slack messages, trigger webhooks, or log to external SIEMs when attacks are captured
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Frontend | React, Vite, TailwindCSS, Recharts, Framer Motion | Real-time dashboard |
-| Backend | Python, FastAPI, Paho MQTT | Collector, API, threat engine |
-| Messaging | Eclipse Mosquitto | MQTT broker (central bus) |
-| Automation | Node-RED | Alert workflows, custom triggers |
-| Infrastructure | Docker, Docker Compose | One-command deployment |
-| Hardware | ESP32 (Arduino) | Physical honeypot nodes |
+### Frontend
+| Technology | Version | Purpose |
+|---|---|---|
+| React | ^18.2 | Component-based UI framework |
+| Vite | ^5.0 | Dev server and production bundler |
+| TailwindCSS | ^3.3 | Utility-first styling |
+| Framer Motion | ^10.16 | Animation and transitions |
+| Recharts | ^2.9 | Attack volume and severity charts |
+| react-force-graph-2d | ^1.25 | Live peer topology graph |
+| Lucide React | ^0.292 | Icon set |
+
+### Backend
+| Technology | Version | Purpose |
+|---|---|---|
+| Python | 3.11 | Runtime |
+| FastAPI | ^0.104 | REST + WebSocket API server |
+| Uvicorn | latest | ASGI server |
+| Paho MQTT | <2.0 | MQTT client — broker communication |
+| WebSockets | built-in | Real-time push to dashboard |
+
+> **Why MQTT?** The MQTT pub/sub protocol is the de facto standard for IoT device communication — lightweight, low-bandwidth, and natively decentralized. Using it as the honeypot's data bus makes the simulated devices indistinguishable from real IIoT targets.
+
+### Infrastructure & Edge
+| Technology | Purpose |
+|---|---|
+| Docker + Compose | Full-stack containerization; single-command deployment |
+| Eclipse Mosquitto 2.0 | Production-grade MQTT broker with WebSocket bridge |
+| Node-RED | Visual IoT workflow automation |
+| ESP32 (Arduino) | Physical edge honeypot node on LAN |
 
 ---
 
-## Quick Start
+## Getting Started
 
-### Prerequisites
-- Docker & Docker Compose installed
+### System Requirements
+- Docker Engine 20.10+
+- Docker Compose v2+
+- 2 GB RAM minimum (4 GB recommended for Node-RED + all services)
 
-### Run the entire system
+### Run the Full Stack
 
 ```bash
-git clone https://github.com/niteshrajanagalu/honeypot.git
+# Clone the repo
+git clone <repo-url>
 cd honeypot
+
+# Build images and start all services
 docker-compose up --build
+
+# Verify all services are healthy
+docker-compose ps
 ```
 
-### Access points
+### Service URLs
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Dashboard | `http://localhost:5173` | Command Center UI |
-| Collector API | `http://localhost:8000` | REST API + WebSocket |
-| Node-RED | `http://localhost:1880` | Workflow editor |
-| MQTT Broker | `localhost:1883` | Internal MQTT |
-| Honeypot Trap | `localhost:1884` | Attacker-facing port |
+| Service | URL |
+|---|---|
+| Command Center Dashboard | http://localhost:5173 |
+| Collector REST API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
+| Node-RED Editor | http://localhost:1880 |
+| MQTT Broker (TCP) | localhost:1883 |
+| Honeypot Bait Port | localhost:1884 |
 
-### Simulate an attack
+---
+
+## Simulating Attacks
+
+The attack simulator publishes crafted MQTT payloads — including exploit-flagged and benign variants — to the honeypot bait port, triggering the full data pipeline from capture to dashboard.
 
 ```bash
+# Shell-based simulator (requires mosquitto-clients)
 ./attack_simulation/attack.sh
+
+# Python-based simulator (full control over payload content and rate)
+cd attack_simulation
+pip install -r requirements.txt
+python attacker.py
 ```
 
-This sends crafted MQTT payloads to port 1884, mimicking real attacker behavior. Watch the dashboard light up in real-time.
+**What to expect on the dashboard:**
+- Attack events appear on the Live Feed within ~100ms of being published
+- High-severity payloads (containing `exploit` or `cmd`) are flagged in red and routed to the Threats Archive
+- The attack volume chart updates in real time
 
 ---
 
-## Hardware Integration
+## Engineering Highlights
 
-The system includes an ESP32 Arduino client that turns a $3 microcontroller into a physical honeypot node.
+These are the core design decisions that make the system work:
 
-```
-ESP32 Node                    Central System
-┌──────────┐    MQTT Publish   ┌──────────────┐
-│ Listens  │ ───────────────→  │ Mosquitto    │
-│ for      │   attack data     │ Broker       │
-│ probes   │                   │ → Collector  │
-│ on WiFi  │                   │ → Dashboard  │
-└──────────┘                   └──────────────┘
-```
-
-Flash `esp32_honeypot_client.ino` to an ESP32, configure WiFi + broker IP, and deploy it on any network you want to monitor.
-
----
-
-## Project Structure
-
-```
-honeypot/
-├── frontend/                  # React dashboard (Vite + Tailwind)
-├── collector/                 # FastAPI backend + threat engine
-├── proxy_logger/              # MQTT proxy (attacker-facing trap)
-├── attack_simulation/         # Scripts to simulate attacks
-├── mosquitto/config/          # Mosquitto broker configuration
-├── node_red_data/             # Node-RED flow definitions
-├── esp32_honeypot_client.ino  # Arduino code for ESP32 nodes
-├── docker-compose.yml         # Full system orchestration
-├── Dockerfile.collector       # Collector container build
-├── IEEE_Project_Report.md     # Formal technical report
-└── presentation_guide.md      # Presentation walkthrough
-```
-
----
-
-## How It Works (Step by Step)
-
-1. **Attacker discovers port 1884** — it looks like an open MQTT broker on a vulnerable IoT device
-2. **Proxy Logger intercepts** — all traffic is captured and forwarded to the real broker on 1883
-3. **Collector subscribes to all topics** — receives every message, classifies severity, stores threats
-4. **Dashboard updates in real-time** — WebSocket pushes new attacks to the UI instantly
-5. **Node-RED triggers alerts** — configurable workflows can send notifications, block IPs, or log to external systems
-6. **ESP32 nodes extend coverage** — physical devices on remote networks report back to the central system
+- **Transparent proxy interception** — Port 1884 acts as a deception layer; attackers connect thinking it's a real broker. The proxy captures their full payload stream before forwarding, enabling logging without disrupting the attacker's session.
+- **Event-driven, zero-poll architecture** — The entire data path (MQTT message → FastAPI → WebSocket → React state) is push-based. No timers, no REST polling. Latency from capture to screen is sub-second.
+- **Decentralized peer discovery over MQTT** — No central registry. Nodes self-announce on a known topic prefix; any collector on the mesh picks them up and builds the topology dynamically. Nodes that go silent are automatically evicted after 30 seconds.
+- **Severity heuristics at the edge** — The collector classifies severity at ingest time, not query time, keeping the dashboard fast regardless of event volume.
+- **Containerized, single-command deployment** — All five services (broker, proxy, collector, frontend, Node-RED) are orchestrated via Compose with a shared bridge network, making the system fully portable.
 
 ---
 
 ## Documentation
 
-- **[IEEE Technical Report](IEEE_Project_Report.md)** — Formal paper covering architecture, methodology, and results
-- **[Presentation Guide](presentation_guide.md)** — Walkthrough script for demos and presentations
-
----
-
-## Recognition
-
-- 🥉 **3rd Place** — Hackathon (Cybersecurity Track)
-- **4th Place** — Hackathon (IoT Security Category)
-
----
-
-## Built By
-
-**Nitesh Raja Nagalu** — Cybersecurity & IoT Engineering Student
-
-- [GitHub](https://github.com/niteshrajanagalu)
-- [LinkedIn](https://linkedin.com/in/niteshrajanagalu)
-
----
-
-## License
-
-This project is open source under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-
-*If you found this useful, consider giving it a ⭐*
-
-</div>
+| Document | Description |
+|---|---|
+| [Presentation Guide & Script](presentation_guide.md) | Walkthrough and demo script for presenting the project |
+| [IEEE Project Report](IEEE_Project_Report.md) | Formal technical report covering architecture, methodology, and results |

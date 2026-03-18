@@ -17,72 +17,88 @@ export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [startTime, setStartTime] = useState(null);
     const wsRef = useRef(null);
+    const isMountedRef = useRef(true);
+    const reconnectTimerRef = useRef(null);
 
     useEffect(() => {
+        isMountedRef.current = true;
+
         const connectWebSocket = () => {
-            // Use window.location.hostname for browser access, fallback to collector for Docker
-            const wsHost = window.location.hostname === 'localhost' ? 'localhost' : 'collector';
+            if (!isMountedRef.current) return;
+
+            // Always connect via the browser's current host (works for localhost dev and Docker port-forwarding)
+            const wsHost = window.location.hostname || 'localhost';
             const ws = new WebSocket(`ws://${wsHost}:8000/ws`);
             wsRef.current = ws;
 
             ws.onopen = () => {
+                if (!isMountedRef.current) return;
                 console.log('WebSocket connected');
                 setIsConnected(true);
             };
 
             ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
+                if (!isMountedRef.current) return;
+                try {
+                    const message = JSON.parse(event.data);
 
-                switch (message.type) {
-                    case 'INIT':
-                        setNodeId(message.node_id);
-                        setPeers(message.peers || {});
-                        setAttacks(message.attacks || []);
-                        if (message.start_time) {
-                            setStartTime(message.start_time * 1000); // Convert to ms
-                        }
-                        break;
+                    switch (message.type) {
+                        case 'INIT':
+                            setNodeId(message.node_id);
+                            setPeers(message.peers || {});
+                            setAttacks(message.attacks || []);
+                            if (message.start_time) {
+                                setStartTime(message.start_time * 1000);
+                            }
+                            break;
 
-                    case 'NEW_ATTACK':
-                        setAttacks(prev => [message.data, ...prev].slice(0, 100));
-                        break;
+                        case 'NEW_ATTACK':
+                            setAttacks(prev => [message.data, ...prev].slice(0, 100));
+                            break;
 
-                    case 'PEER_UPDATE':
-                        setPeers(prev => ({
-                            ...prev,
-                            [message.peer_id]: message.data
-                        }));
-                        break;
+                        case 'PEER_UPDATE':
+                            setPeers(prev => ({
+                                ...prev,
+                                [message.peer_id]: message.data
+                            }));
+                            break;
 
-                    case 'PEER_REMOVED':
-                        setPeers(prev => {
-                            const newPeers = { ...prev };
-                            delete newPeers[message.peer_id];
-                            return newPeers;
-                        });
-                        break;
+                        case 'PEER_REMOVED':
+                            setPeers(prev => {
+                                const next = { ...prev };
+                                delete next[message.peer_id];
+                                return next;
+                            });
+                            break;
 
-                    default:
-                        console.log('Unknown message type:', message.type);
+                        default:
+                            console.log('Unknown message type:', message.type);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse WebSocket message:', e);
                 }
             };
 
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+            ws.onerror = () => {
+                if (!isMountedRef.current) return;
                 setIsConnected(false);
             };
 
             ws.onclose = () => {
-                console.log('WebSocket disconnected, reconnecting...');
+                if (!isMountedRef.current) return;
+                console.log('WebSocket disconnected, reconnecting in 3s...');
                 setIsConnected(false);
-                setTimeout(connectWebSocket, 3000);
+                reconnectTimerRef.current = setTimeout(connectWebSocket, 3000);
             };
         };
 
         connectWebSocket();
 
         return () => {
+            isMountedRef.current = false;
+            clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) {
+                wsRef.current.onclose = null; // prevent reconnect trigger on intentional close
                 wsRef.current.close();
             }
         };
